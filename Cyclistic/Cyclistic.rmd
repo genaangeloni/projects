@@ -1,0 +1,463 @@
+---
+title: "Cyclistic"
+author: "Genaro Angeloni"
+date: "03/01/2022"
+output:
+  pdf_document: default
+fontsize: 12pt
+---
+# Introduction
+
+  **Cyclistic** is a bike-share company based in Chicago, that features more than 5,800 bikes and 600 docking stations. This program makes bike-sharing more inclusive to people with disabilities and riders who can't use a standard two-wheeled bikes, also offering reclining bikes, hand tricycles and cargo bikes, representing these options the 8% of the riders.
+  The company offers three flexible pricing plans: single-ride passes, full-day passes, and annual memberships. Customers who purchase _single-ride_ or _full-day passes_ are referred to as **casual riders**, and the customers who purchase _annual memberships_ are **Cyclistic members**.
+
+# Statement of the business task
+  Finance analysts have concluded that annual members are much more profitable than casual riders. Although the pricing flexibility helps to attract more customers, we believe that _maximizing the number of annual members will be key to future growth_. Rather than creating a marketing campaign that targets all new customers, we believe that there is a very good chance to **convert casual riders into members**.
+The goal is **to design marketing strategies aimed at converting casual riders into annual members**. 
+  In order to do that, we need to better understand how annual members and casual riders differ, which casual riders would buy a membership, and how digital media could affect their marketing tactics. In this analysis we are going to address the first question: 
+
+  **How do annual members and casual riders use Cyclistic bikes differently?**
+
+  We hope that answering this first question will help us to decipher what differential characteristics of the product offered by the company are those that attract casual customers, and how to enhance these characteristics in order to convert these customers to members of the company. To do this, we propose to answer the following questions:
+
+* What is the average travel duration for each type of customer?
+* Are there any seasonal trend in customer demand for bycicles?
+* Is there a weekly trend in customer demand for bicycles?
+* Are there peak times in the demand for bicycles by customers?
+* What are the preferred stations for casual riders?
+* Do casual riders prefer electric or regular bikes?
+
+## Considering key stakeholders
+For this project, we're considering the next key stakeholders:
+
+* **Manager**: Lily Moreno is the director of marketing, responsible for the campaigns and initiatives to promote the bike-sharing program. She will be interested in the insights I'd get from the analysis to develop a data-driven strategy to attract casual riders to the annual membership.
+
+* **Marketing Analytics Team**: we are responsible for collecting, analyzing and reporting the data. My teammates will be interested in the data cleaning process, the tools that I use for cleaning and analyzing the data, and how I will share them through data visualization tools.
+
+* **Executive team**: they are responsible for decide whether to approve the recommended marketing program. They are going to be interested in the insights that support the marketing strategy proposed.
+
+# Prepairing data: description of sources used
+  The dataset that we will use corresponds to **twelve months of Cyclistic's trips**. This kind of data is named _first-party data_, collected by the company using their own resources (This is a fictional case study, and the company Ciclystic doesn't exists. The data has been made available by Motivate International Inc. under this [license](https://www.divvybikes.com/data-license-agreement)). The data is located in the cloud of the company, so it can be easily accessed.
+  All trips for a particular month are stored in a single data frame, identifying each trip with an ID. In addition to the type of customer and bicycle, the day and time, station, latitude and longitude of both the start and end of the trip are stored for each of them.
+  As the data was collected by the company, we could say that it is reliable and original. On the other hand, being the most recent data available, we have a current data set. In addition, we believe that this data will allow us to characterize each trip, and together, to be able to build a profile of casual client and member, which will be key to meeting the objective of the analysis. Finally, the privacy that the company imparts on these data means that is not cited by third parties. However, considering the origin of the data, we can say that this should not be a problem or question its reliability.
+  An essential point in the data set is the concern for customer privacy, avoiding collecting rider's personally identifiable information. This means that with this data we will not be able to connect trips with credit card numbers to access sensitive information about our clients. The information available is the minimum necessary to be able to characterize each bicycle trip.
+
+  Now we are going to start the preparing phase of the project. Here, we'll check the data integrity, and we are going to determine if there are any problems with the data. The first step will be loading the data:
+
+```{r, warning=FALSE, message=FALSE, results='hide'}
+library(tidyverse)
+
+data1 <- read_csv("data/202101-divvy-tripdata.csv")
+data2 <- read_csv("data/202102-divvy-tripdata.csv")
+data3 <- read_csv("data/202103-divvy-tripdata.csv")
+data4 <- read_csv("data/202104-divvy-tripdata.csv")
+data5 <- read_csv("data/202105-divvy-tripdata.csv")
+data6 <- read_csv("data/202106-divvy-tripdata.csv")
+data7 <- read_csv("data/202107-divvy-tripdata.csv")
+data8 <- read_csv("data/202108-divvy-tripdata.csv")
+data9 <- read_csv("data/202109-divvy-tripdata.csv")
+data10 <- read_csv("data/202110-divvy-tripdata.csv")
+data11 <- read_csv("data/202111-divvy-tripdata.csv")
+data12 <- read_csv("data/202012-divvy-tripdata.csv")
+
+```
+
+  First we are going to make sure that the data frames are consistent with each other, in order to make the final merge. We will review column names and formats:
+
+```{r}
+glimpse(data1)
+glimpse(data2)
+glimpse(data3)
+glimpse(data4)
+glimpse(data5)
+glimpse(data6)
+glimpse(data7)
+glimpse(data8)
+glimpse(data9)
+glimpse(data10)
+glimpse(data11)
+glimpse(data12)
+```
+
+  The data frames look consistent, so let's merge them as the raw version of the data:
+
+```{r}
+data <- rbind(data1,data2,data3,data4,data5,data6,data7,data8,data9,data10,data11,data12)
+```
+
+  To get an idea about the stored data, let's look at the unique values, and the NAs in each column:
+
+```{r}
+for (col in colnames(data)){
+  val <- data[col] %>% unlist() %>% unique() %>% length()
+  
+  print(paste0(col,": ",val))
+}
+```
+
+
+```{r}
+for (col in colnames(data)){
+  val <- data[col] %>% unlist() %>% is.na() %>% sum()
+  
+  print(paste0(col,": ",val))
+}
+```
+
+  So, as we see, we have some inconsistencies to clean. Before that, we can't be sure about the integrity of the dataset.
+
+# Data Cleaning
+
+  First of all, we are going to remove some columns that are not necessary for the analysis that we'll carry out, like the station and ride ID and the latitude and longitude of the stations. We are going to call this new dataset **data_v2**. Also, we are going to rename some columns:
+
+```{r}
+data_v2 <- data.frame(
+  "customer" = data$member_casual,
+  "bike" = data$rideable_type,
+  "started_at" = data$started_at,
+  "ended_at" = data$ended_at,
+  "start_station" = data$start_station_name,
+  "end_station" = data$end_station_name
+ )
+
+glimpse(data_v2)
+```
+
+  We can see that the data type of each column is the appropiate one. The only modification we will make is to convert customer to factor:
+
+```{r}
+data_v2["customer"] <- as.factor(data_v2$customer)
+```
+
+  Let's check the second column, the bike type:
+
+```{r}
+unique(data_v2$bike)
+```
+
+  This is an inconsistency, as we can say that docked bike is the same as classic bike, so we are going to fix this:
+
+```{r}
+data_v2["bike"] <- replace(data_v2$bike, data_v2$bike=="docked_bike","classic_bike")
+```
+
+  Now let's take a look to the stations. Let's start replacing the NA's values on the stations columns to the value "Unknown":
+
+```{r}
+data_v2["start_station"] <- replace_na(data_v2$start_station,"Unknown")
+
+data_v2["end_station"] <- replace_na(data_v2$end_station,"Unknown")
+```
+
+  Diving into the unique values of the stations, we can note some inconsistencies:
+
+* Some stations have a _(Temp)_ or _(NEXT Apts)_, like Halsted St & 18th St, at the end of the name.
+
+* There are a "DIVVY CASSETTE REPAIR MOBILE STATION" and a "HUBBARD ST BIKE CHECKING (LBS-WH-TEST)" station, that seems to be some company maintenance stations.
+
+  So, in order to fix the inconsistencies, let's remove the company maintenance stations and let's erase the _(Temp)_ and _(NEXT Apts)_.
+
+```{r}
+
+data_v2$start_station <- str_replace_all(data_v2$start_station, c("Temp"="","NEXT Apts"=""))
+data_v2$start_station <- str_replace(data_v2$start_station, "\\(\\)", "")
+
+data_v2 <- dplyr::filter(data_v2,start_station!="DIVVY CASSETTE REPAIR MOBILE STATION")
+data_v2 <- dplyr::filter(data_v2,start_station!="HUBBARD ST BIKE CHECKING (LBS-WH-TEST)")
+data_v2 <- dplyr::filter(data_v2,end_station!="DIVVY CASSETTE REPAIR MOBILE STATION")
+data_v2 <- dplyr::filter(data_v2,end_station!="HUBBARD ST BIKE CHECKING (LBS-WH-TEST)")
+
+```
+
+  Now let's add a column "ride_length" substracting the start and ending time. It will be expressed in minutes:
+
+```{r}
+data_v2["ride_length"] <- as.integer(difftime(data_v2$ended_at,data_v2$started_at,units = "mins"))
+```
+
+  Let's explore this new data:
+
+```{r}
+ggplot(data_v2, aes(y=ride_length))+
+  geom_boxplot()+
+  labs(x="Ride Length (min)", title="Box-plot of overall Ride Lengths")
+```
+
+  Quickly, in the last graph we can see that there are some issues with this data, so we are going to check how many outliers we have, and if we'll be able to ignore them
+
+```{r}
+sum(data_v2$ride_length<0)
+```
+  We have 455 rows that we should ignore: are just a few negative values that represents a very small portion of data that could skew future analysis. Let's take a look to some of them before remove it:
+
+```{r}
+head(data_v2[data_v2$ride_length<0,])
+```
+
+  As we see, there are some errors with the starting and ending time of trip, so we are going to keep only positive values. At this point, is going to be useful to keep the raw data obtained so far, so we are starting a new version of the dataset:
+
+```{r}
+data_v3 <- data_v2[data_v2$ride_length>0,]
+```
+
+  Now lets take a look to the outliers of the dataset:
+
+```{r}
+q_m <- quantile(data_v3$ride_length[data_v3$customer=="member"], probs=c(0.25, 0.75))
+
+q_c <- quantile(data_v3$ride_length[data_v3$customer=="casual"], probs=c(0.25, 0.75))
+
+iqr_m <- q_m[2]-q_m[1]
+iqr_c <- q_c[2]-q_c[1]
+
+upper_m <- q_m[2]+(1.5*iqr_m)
+lower_m <- q_m[1]-(1.5*iqr_m)
+upper_c <- q_c[2]+(1.5*iqr_c)
+lower_c <- q_c[1]-(1.5*iqr_c)
+
+print(paste("Casual outliers above:", sum(data_v3$ride_length[data_v3$customer=="casual"]>upper_c)))
+print(paste("Casual outliers below:", sum(data_v3$ride_length[data_v3$customer=="casual"]<lower_c)))
+print(paste("Members outliers above:", sum(data_v3$ride_length[data_v3$customer=="member"]>upper_m)))
+print(paste("Members outliers below:", sum(data_v3$ride_length[data_v3$customer=="member"]<lower_m)))
+```
+
+  Let's move the outliers to another data frame:
+
+```{r}
+outliers <- rbind(
+  dplyr::filter(data_v3, customer=="casual" & ride_length>upper_c),
+  dplyr::filter(data_v3, customer=="member" & ride_length>upper_m)
+)
+
+data_v3 <- rbind(
+  dplyr::filter(data_v3, customer=="casual" & ride_length <= upper_c),
+  dplyr::filter(data_v3, customer=="member" & ride_length <= upper_m)
+)
+```
+
+  Now it's time to take a closer look to the lower values.
+
+```{r}
+head(data_v3[data_v3$ride_length<2,])
+```
+
+  Here we see that we could have rides like the one in the 3rd row: the trip lasted one minute, and the starting and ending station is the same. This could be because a customer took a bike, regretted his decision, and ended up returning it without using it. These rows can be isolated and dropped looking for trips where the starting and ending stations are the same, and the duration of the trip is less than about 5 minutes:
+
+```{r}
+data_v3 %>%
+  dplyr::filter(
+    start_station == end_station &
+    ride_length < 5
+  ) %>%
+  dim()
+```
+
+  We have 121,436 rides that have these characteristics, and we are going to drop that rows to another data frame:
+
+```{r}
+short_trips <- data_v3 %>%
+  dplyr::filter(start_station==end_station & ride_length<5)
+
+data_v3 <- data_v3 %>%
+  dplyr::filter(!(start_station==end_station & ride_length<5))
+
+```
+
+
+  Finally, let's add two columns for the month, the day of the week, and the ride hour, and save the dataset as the cleaned data:
+
+```{r, message=FALSE}
+library(lubridate)
+Sys.setlocale("LC_TIME", "C")
+
+data_v3["ride_month"] <- factor(format(data_v3$started_at,"%b"),levels=substr(month.name,1,3))
+
+data_v3["ride_day"] <- factor(substr(weekdays(data_v3$started_at),1,3), levels=c("Mon","Tue","Wed","Thu","Fri","Sat","Sun"))
+
+data_v3["ride_hour"] <- data_v3$started_at %>%
+  format(format="%H:%M") %>%
+  as.POSIXct(format="%H:%M")
+
+#write.csv(data_v3, "data_v3.csv", row.names=FALSE)
+  
+```
+
+  Now we have all we need to the analyze phase:
+
+```{r}
+glimpse(data_v3)
+```
+
+# Analizing the data
+
+  In this section, we are going to try to characterize each type of customer, looking for differences in their respective ride trips.
+
+### What is the average travel duration for each type of customer?
+
+  The average ride length for each customer type is:
+
+```{r}
+print(paste("Mean for Casuals: ", round(mean(data_v3$ride_length[data_v3$customer=="casual"]))," min"))
+print(paste("Mean for Members: ", round(mean(data_v3$ride_length[data_v3$customer=="member"]))," min"))
+```
+
+  The first impression with these results is that **casuals riders tend to take longer trips**. This could be explained by claiming that casual riders could use bicycles to travel around the city as tourism, while members could use them to more precise things, like go to work. Let's plot this data:
+
+```{r}
+ggplot(data=data_v3, aes(x=customer,y=ride_length, fill=customer)) +
+  stat_boxplot(geom="errorbar",width=0.1,color="black") +
+  geom_boxplot(width=0.1,color="black", alpha=0.8) +
+  geom_signif(comparisons=list(c("casual","member")),
+              map_signif_level = TRUE,
+              y_position = 60) +
+  ylim(-2,70) +
+  labs(x="Customer", y="Ride length (min)", title="Ride length by type of Customer") +
+  theme(plot.title.position = "plot") +
+  theme_linedraw() +
+  labs(caption = "* = 0.05, ** = 0.01, *** = 0.001")
+```
+
+### Are there any seasonal trend in customer demand for bycicles?
+
+  Let's check if there are some seasonal trend in the number of rides:
+
+```{r}
+ggplot(data=data_v3) +
+  geom_bar(mapping=aes(x=ride_month,fill=customer), position="dodge", alpha=0.95) +
+  labs(x="Month", y="Number of Rides", title="Count of rides per month by type of customer", fill="Type of Customer") +
+  theme_linedraw()
+```
+
+  In the graph we can see a general trend towards **fewer trips in the winter months**. This can be attributed to the slightly more adverse environmental climatic conditions of these months, which may make customers prefer other means of transport. In relation to casual riders, we can see that the peak of demand is between the months of June and September, something that may be related to summer vacations, a phenomenon that can attract more tourists to use bicycles to take walks around the city. town. For members, the peak is not so marked and includes a longer period of time, being able to consider the months between May and November. Here, the greater and lesser demand for bicycles could be attributed only to a question of seasons that favor or adversely affect outdoor transport.
+
+### Is there a weekly trend in customer demand for bicycles?
+
+  Now, let's apply the same question concept to the week:
+
+```{r}
+ggplot(data=data_v3) +
+  geom_bar(mapping=aes(x=ride_day,fill=customer), position="dodge") +
+  labs(x="Day of the Week", y="Number of Rides", title="Count of rides per day by type of customer", fill="Type of Customer") +
+  theme_linedraw()
+```
+
+  As in the previous case, we see a marked **trend in the demand for casual riders on weekends**, which may gradually confirm the idea of the tourist use that these customers give the product. The contrast of this is the almost constant demand for members, which even seems to decline slightly on the weekends.
+
+### Are there peak times in the demand for bicycles by customers?
+
+  Let's see what time of the day prefers each customer:
+
+```{r}
+times_m <- data.frame(table(data_v3$ride_hour[data_v3$customer=="member"]))
+colnames(times_m) <- c("hour","count")
+times_m$customer <- rep("member",dim(times_m)[1])
+
+times_c <- data.frame(table(data_v3$ride_hour[data_v3$customer=="casual"]))
+colnames(times_c) <- c("hour","count")
+times_c$customer <- rep("casual",dim(times_m)[1])
+
+times <- rbind(times_m,times_c)
+times$hour <- as.POSIXct(times$hour)
+```
+
+
+```{r}
+ggplot(data=times) +
+  geom_smooth(mapping=aes(x=hour,y=count, color=customer, group=customer), size=1.5) +
+  scale_x_datetime(date_breaks="3 hours", date_labels = "%H:%M", minor_breaks = "1 hour") +
+  labs(x="Hour", y="Number of rides", title="Traffic by type of customer", color="Type of customer") +
+  theme_linedraw()
+```
+
+  In the graph we can distinguish two key behaviors for each customer. On the one hand, the demand for bicycles by members has two marked peaks: one between 8 and 9am, and another between 5 and 7pm. This behavior can be attributed to a significant demand on the part of these clients in commuting schedules to and from work. On the other hand, the demand from casual customers grows gradually, taking on significant values after noon and reaching its **peak between 5:00 p.m. and 6:00 p.m.** This schedule may be the preferred time for this type of client to go on bike rides around the city.
+
+### What are the preferred stations for casual riders?
+
+  Now we will try to find the stations with the highest traffic from casual riders:
+
+```{r}
+start_stations <- table(data_v3$start_station,data_v3$customer) %>%
+  data.frame() %>%
+  dplyr::filter(Var1!="Unknown" & Var2=="casual") %>%
+  arrange(-Freq) %>%
+  head(10)
+
+colnames(start_stations) <- c("station","customer","count")
+
+end_stations <- table(data_v3$end_station,data_v3$customer) %>%
+  data.frame() %>%
+  dplyr::filter(Var1!="Unknown" & Var2=="casual") %>%
+  arrange(-Freq) %>%
+  head(10)
+
+colnames(end_stations) <- c("station","customer","count")
+```
+
+
+```{r}
+ggplot(data=start_stations) +
+  geom_col(mapping=aes(x=reorder(station,count),y=count)) +
+  labs(x="Station", y="Number of rides", title="Preferred start stations by Casual Riders") +
+  coord_flip() +
+  theme_linedraw()
+
+
+ggplot(data=end_stations) +
+  geom_col(mapping=aes(x=reorder(station,count),y=count)) +
+  labs(x="Station", y="Number of rides", title="Preferred end stations by Casual Riders") +
+  coord_flip() +
+  theme_linedraw()
+```
+
+  These two graphs allow us to continue supporting the theory of the recreational use of bicycles by casual riders, since **some of the main stations from which trips depart and to which trips arrive are tourist spots in the city**, such as Millennium Park, Theater on the Lake or Shedd Aquarium.
+
+### Do casual riders prefer electric or regular bikes?
+
+  In the last question, we are going to see if are there any preference on choosing the bike:
+
+```{r}
+ggplot(data=data_v3) +
+  geom_bar(mapping=aes(x=customer, fill=bike), position="fill", width=0.5)+
+  labs(y="Proportion of bikes", x="Customer", fill="Type of Bike", title="Bike preferences by type of customers") +
+  theme_linedraw()
+```
+
+  In this case, we can say that there is **no differential behavior in the choice of the type of bicycle** by both clients. In both cases there is a preference for classic bicycles, but there are no significant differences between them.
+
+# Conclusions
+
+  In this project, the analysis of twelve months of information on bicycle trips from the Cyclistic company was carried out, with the aim of evaluating how annual members and casual riders use bicycles differently. The dataset used is located in the company's cloud, and meets the minimum reliability and utility requirements to answer the initial question posed.
+
+  The differences in the user profile of casual riders are centered on the recreational and tourism use they give to bicycles, and the insights found in the different stages of analysis support this idea:
+
+* Casual riders tend to take somewhat longer trips. This can be explained by attributing these trips to tourism for these users, while the annual members could use the bicycles for more precise purposes such as traveling to and from work.
+
+* The demand for casual riders increases on weekends. This is consistent with recreational use of bicycles.
+
+* After noon is the time where the demand for casual riders increases, with a peak at 5pm. In contrast, the members present two peaks marked in the morning and in the afternoon, also attributable to use as transportation to work.
+
+* The main stations preferred by casual riders seem to be tourist spots.
+
+  On the other hand, no differential behaviors were observed in the choice of the type of bicycle, nor in monthly trends. Both customers have roughly the same preference for types of bicycles, and the demand by both customers increases in the months between May and October, probably due to weather issues.
+
+  As the profile of casual riders is aimed at tourism, this is the key point to emphasize when attracting these customers to an annual membership. Some suggestions that could contribute to this transition could be:
+
+* Offer different thematic tours around the city of Chicago at different times of the year, visiting the main tourist centers. Establishing these recreational activities on a regular basis could attract casual riders to sign up for a monthly membership.
+
+* Establish relationships with local food and souvenirs present in major Chicago tourist centers to try to establish discounts for annual members of Cyclistics.
+
+* Offer tours at night through the main bars and restaurants in the city, showing the "other side of Chicago", with free drinks and / or discounts on them.
+
+  These are some of the ideas that we think could attract casual riders to pay an annual membership. While many more ideas may emerge, we believe it is crucial that they focus on **exploiting Chicago city tourism on Cyclistics bikes**.
+
+
+
+
+
+
+
+
+
+
+
+
