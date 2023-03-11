@@ -1,1 +1,3 @@
-"ride_id","rideable_type","started_at","ended_at","start_station_name","start_station_id","end_station_name","end_station_id","start_lat","start_lng","end_lat","end_lng","member_casual"
+version https://git-lfs.github.com/spec/v1
+oid sha256:e21a83da278a663ac3a9c90eb8b0f3165b5c424f30d0755a3d33ed6ff5f299eb
+size 186
